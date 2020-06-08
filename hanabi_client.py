@@ -7,7 +7,8 @@ import websocket
 # Imports (local application)
 from constants import ACTION
 from game_state import GameState
-
+from constants import MAX_CLUE_NUM
+import traceback
 
 class HanabiClient:
     def __init__(self, url, cookie):
@@ -77,7 +78,7 @@ class HanabiClient:
                 self.commandHandlers[command](data)
             except Exception as e:
                 print('error: command handler for "' + command + '" failed:',
-                      e)
+                      e, traceback.format_exc())
                 return
         else:
             print('debug: ignoring command "' + command + '"')
@@ -214,6 +215,10 @@ class HanabiClient:
         '''
         for i in range(5):
             state.play_stacks.append([])
+        
+        for i in range(5):
+            state.discard_pile.append({1:[],2:[],3:[],4:[],5:[]})
+
 
         # At this point, the JavaScript client would have enough information to
         # load and display the game UI; for our purposes, we do not need to
@@ -238,6 +243,7 @@ class HanabiClient:
         print('debug: got a game action of "' + data['type'] + '" for table ' +
               str(table_id))
 
+
         # Local variables
         state = self.games[table_id]
 
@@ -248,37 +254,82 @@ class HanabiClient:
                 'order': data['order'],
                 'suit': data['suit'],
                 'rank': data['rank'],
+                'knowledge': [1]*25,
+                'clue':[ [0]*5, [0]*5]
             })
+            # every time we draw a card the deck has one less
+            state.num_cards_deck -= 1
+            print(state.num_cards_deck)
 
         elif data['type'] == 'play':
             seat = data['which']['index']
             order = data['which']['order']
-            card = self.remove_card_from_hand(state, seat, order)
+            card, index = self.remove_card_from_hand(state, seat, order)
             if card is not None:
-                # TODO Add the card to the play stacks
+                state.play_stacks[card['suit']].append(card) # TODO Add the card to the play stacks
+                card['hand_index'] = index
+                print(state.play_stacks)
                 pass
+            state.last_action = data.copy()
+            state.last_action['who'] = state.current_turn
 
         elif data['type'] == 'discard':
             seat = data['which']['index']
             order = data['which']['order']
-            card = self.remove_card_from_hand(state, seat, order)
+            card, index = self.remove_card_from_hand(state, seat, order)
             if card is not None:
-                # TODO Add the card to the play stacks
+                # TODO better representation so that vecotrizing easier
+                state.discard_pile[data['which']['suit']][data['which']['rank']].append(card)
+                card['hand_index'] = index
+                print(state.discard_pile)
                 pass
 
             # Discarding adds a clue
             if not data['failed']:  # Misplays are represented as discards
                 state.clue_tokens += 1
+                state.clue_tokens = min(state.clue_tokens, MAX_CLUE_NUM)
+                state.last_action = data
+                state.last_action['who'] = state.current_turn
 
         elif data['type'] == 'clue':
             # Each clue costs one clue token
             state.clue_tokens -= 1
-
-            # TODO We might also want to update the state of cards that are
-            # "touched" by the clue
+            state.last_action = data.copy()
+            state.last_action['who'] = state.current_turn
+            hand = state.hands[data['target']]
+            listClues = data['list']
+            for card in hand:
+                if card['order'] in listClues:
+                    # note clue gotten
+                    adjustIndex = 0
+                    if data['clue']['type'] == 1:
+                        adjustIndex = 1
+                    card['clue'][data['clue']['type']][data['clue']['value']-adjustIndex]=1
+                    #transform to card knowledge: vector of all possible interpretations of card
+                    intermediateCardKnowledge = [0]*25
+                    for rank in range(5):
+                        for color in range(5):
+                            if ((data['clue']['type'] == 0 and color == data['clue']['value']) or
+                                (data['clue']['type'] == 1 and rank == data['clue']['value']-1)):
+                                intermediateCardKnowledge[color*5+rank] = 1
+                    card['knowledge'] = [a and b for a,b in zip(card['knowledge'], intermediateCardKnowledge)]
+                else:
+                    # clues give information about other cards that did not receive the clue
+                    intermediateCardKnowledge = [1]*25
+                    for rank in range(5):
+                        for color in range(5):
+                            if ((data['clue']['type'] == 0 and color == data['clue']['value']) or
+                                (data['clue']['type'] == 1 and rank == data['clue']['value']-1)):
+                                intermediateCardKnowledge[color*5+rank] = 0
+                    card['knowledge'] = [a and b for a,b in zip(card['knowledge'], intermediateCardKnowledge)]
 
         elif data['type'] == 'turn':
             state.turn = data['num']
+            state.current_turn = data['who']
+        elif data['type'] == 'strike':
+            state.life_tokens -= 1
+            state.last_action = data.copy()
+            state.last_action['who'] = state.current_turn
 
     def your_turn(self, data):
         # The "yourTurn" command is only sent when it is our turn
@@ -356,20 +407,25 @@ class HanabiClient:
         if not isinstance(data, dict):
             data = {}
         self.ws.send(command + ' ' + json.dumps(data))
-        print('debug: sent command "' + command + '"')
+        print('debug: sent command "' + command + ' ' + str(data) +'"')
 
-    # "seat" is the index of the player
-    def remove_card_from_hand(self, state, seat, order):
-        hand = state.hands[seat]
+    def findCardIndex(self, hand, order):
         card_index = -1
         for i in range(len(hand)):
             card = hand[i]
             if card['order'] == order:
-                card_index = i
+                card_index = i 
+        return card_index  
+
+    # "seat" is the index of the player
+    def remove_card_from_hand(self, state, seat, order):
+        hand = state.hands[seat]
+        card_index = self.findCardIndex(hand, order)
         if card_index == -1:
             print('error: unable to find card with order ' + str(order) + ' in'
                   'the hand of player ' + str(seat))
             return None
         card = hand[card_index]
         del hand[card_index]
-        return card
+        return card,card_index
+

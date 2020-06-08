@@ -1,4 +1,4 @@
-from constants import MAX_CLUE_NUM
+from constants import MAX_CLUE_NUM, MAX_DECK, MAX_TOKENS
 
 
 # This is just a reference;
@@ -14,3 +14,7 @@ class GameState:
     play_stacks = []
     discard_pile = []
     turn = -1
+    num_cards_deck = MAX_DECK
+    life_tokens = MAX_TOKENS
+    last_action = {}
+
