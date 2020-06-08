@@ -5,9 +5,9 @@ import json
 import websocket
 
 # Imports (local application)
-from constants import ACTION
-from game_state import GameState
-from constants import MAX_CLUE_NUM
+from hanabi_live_bot.constants import ACTION
+from hanabi_live_bot.game_state import GameState
+from hanabi_live_bot.constants import MAX_CLUE_NUM
 import traceback
 
 class HanabiClient:
@@ -47,7 +47,6 @@ class HanabiClient:
             on_close=lambda ws: self.websocket_close(ws),
             cookie=cookie,
         )
-        self.ws.run_forever()
 
     # ------------------
     # WebSocket Handlers
@@ -91,6 +90,9 @@ class HanabiClient:
 
     def websocket_open(self, ws):
         print('Successfully established WebSocket connection.')
+
+    def start_server(self):
+        self.ws.run_forever()
 
     # ------------------------------------
     # Hanabi Live Command Handlers (Lobby)
@@ -218,7 +220,7 @@ class HanabiClient:
         
         for i in range(5):
             state.discard_pile.append({1:[],2:[],3:[],4:[],5:[]})
-
+        
 
         # At this point, the JavaScript client would have enough information to
         # load and display the game UI; for our purposes, we do not need to

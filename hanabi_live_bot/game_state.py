@@ -1,4 +1,4 @@
-from constants import MAX_CLUE_NUM, MAX_DECK, MAX_TOKENS
+from hanabi_live_bot.constants import MAX_CLUE_NUM, MAX_DECK, MAX_TOKENS
 
 
 # This is just a reference;
