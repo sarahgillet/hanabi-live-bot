@@ -13,4 +13,9 @@ setup(
     description = ("An agent that connects to hanabi live and collects "
                                    "the game state."),
     packages=['hanabi_live_bot'],
+    install_requires=[
+   'python-dotenv',
+   'requests',
+   'websocket-client'
+    ],
 )
