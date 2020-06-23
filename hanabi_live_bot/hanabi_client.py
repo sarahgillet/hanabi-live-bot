@@ -157,9 +157,10 @@ class HanabiClient:
                 'Please create a table first before requesting '
                 'that I join your game.', data['who'])
             return
-
+        result = data['msg'].split(' ', 1)
         self.send('tableJoin', {
             'tableID': table_id,
+            'password': result[1]
         })
 
     def table(self, data):
