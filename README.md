@@ -16,4 +16,6 @@ An example reference bot for the [Hanabi Live website](https://github.com/Zamiel
 * In a browser, log on to Hanabi Live and start a new table.
 * In the pre-game chat window, send a private message to the bot in order to get it to join you:
   * `/msg [username] /join`
+* If you have set a password to the game send the following message instead
+  * `/msg [username] /join [yourPassword]`
 * Then, start the game and play!
